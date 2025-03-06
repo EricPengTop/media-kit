@@ -6,6 +6,7 @@
 // ignore_for_file: non_constant_identifier_names
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:media_kit_video/media_kit_video_controls/src/controls/extensions/duration.dart';
@@ -270,6 +271,23 @@ class MaterialVideoControlsThemeData {
   /// [Alignment] of seek bar inside the seek bar container.
   final Alignment seekBarAlignment;
 
+  // VOLUME BAR
+
+  /// [Color] of the volume bar.
+  final Color volumeBarColor;
+
+  /// [Color] of the active region in the volume bar.
+  final Color volumeBarActiveColor;
+
+  /// Size of the volume bar thumb.
+  final double volumeBarThumbSize;
+
+  /// [Color] of the volume bar thumb.
+  final Color volumeBarThumbColor;
+
+  /// [Duration] for which the volume bar will be animated when the user hovers.
+  final Duration volumeBarTransitionDuration;
+
   // SUBTITLE
 
   /// Whether to shift the subtitles upwards when the controls are visible.
@@ -333,6 +351,11 @@ class MaterialVideoControlsThemeData {
     this.seekBarThumbSize = 12.8,
     this.seekBarThumbColor = const Color(0xFFFF0000),
     this.seekBarAlignment = Alignment.bottomCenter,
+    this.volumeBarColor = const Color(0x3DFFFFFF),
+    this.volumeBarActiveColor = const Color(0xFFFFFFFF),
+    this.volumeBarThumbSize = 12.0,
+    this.volumeBarThumbColor = const Color(0xFFFFFFFF),
+    this.volumeBarTransitionDuration = const Duration(milliseconds: 150),
     this.shiftSubtitlesOnControlsVisibilityChange = false,
   });
 
@@ -1891,17 +1914,21 @@ class MaterialFullscreenButton extends StatelessWidget {
   /// Overriden icon color for [MaterialFullscreenButton].
   final Color? iconColor;
 
+  /// The callback that is called when the button is tapped or otherwise activated.
+  final VoidCallback? onPressed;
+
   const MaterialFullscreenButton({
     Key? key,
     this.icon,
     this.iconSize,
     this.iconColor,
+    this.onPressed,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      onPressed: () => toggleFullscreen(context),
+      onPressed: onPressed ?? () => toggleFullscreen(context),
       icon: icon ??
           (isFullscreen(context)
               ? const Icon(Icons.fullscreen_exit)
@@ -1944,6 +1971,204 @@ class MaterialCustomButton extends StatelessWidget {
       padding: EdgeInsets.zero,
       iconSize: iconSize ?? _theme(context).buttonBarButtonSize,
       color: iconColor ?? _theme(context).buttonBarButtonColor,
+    );
+  }
+}
+
+/// MaterialDesktop design volume button & slider.
+class MaterialVolumeButton extends StatefulWidget {
+  /// Icon size for the volume button.
+  final double? iconSize;
+
+  /// Icon color for the volume button.
+  final Color? iconColor;
+
+  /// Mute icon.
+  final Widget? volumeMuteIcon;
+
+  /// Low volume icon.
+  final Widget? volumeLowIcon;
+
+  /// High volume icon.
+  final Widget? volumeHighIcon;
+
+  /// Width for the volume slider.
+  final double? sliderWidth;
+
+  const MaterialVolumeButton({
+    super.key,
+    this.iconSize,
+    this.iconColor,
+    this.volumeMuteIcon,
+    this.volumeLowIcon,
+    this.volumeHighIcon,
+    this.sliderWidth,
+  });
+
+  @override
+  MaterialVolumeButtonState createState() => MaterialVolumeButtonState();
+}
+
+class MaterialVolumeButtonState
+    extends State<MaterialVolumeButton>
+    with SingleTickerProviderStateMixin {
+  late double volume = controller(context).player.state.volume;
+
+  StreamSubscription<double>? subscription;
+
+  bool hover = false;
+
+  bool mute = false;
+  double _volume = 0.0;
+
+  @override
+  void setState(VoidCallback fn) {
+    if (mounted) {
+      super.setState(fn);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    subscription ??= controller(context).player.stream.volume.listen((event) {
+      setState(() {
+        volume = event;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    subscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (e) {
+        setState(() {
+          hover = true;
+        });
+      },
+      onExit: (e) {
+        setState(() {
+          hover = false;
+        });
+      },
+      child: Listener(
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent) {
+            if (event.scrollDelta.dy < 0) {
+              controller(context).player.setVolume(
+                (volume + 5.0).clamp(0.0, 100.0),
+              );
+            }
+            if (event.scrollDelta.dy > 0) {
+              controller(context).player.setVolume(
+                (volume - 5.0).clamp(0.0, 100.0),
+              );
+            }
+          }
+        },
+        child: Row(
+          children: [
+            const SizedBox(width: 4.0),
+            IconButton(
+              onPressed: () async {
+                if (mute) {
+                  await controller(context).player.setVolume(_volume);
+                  mute = !mute;
+                }
+                // https://github.com/media-kit/media-kit/pull/250#issuecomment-1605588306
+                else if (volume == 0.0) {
+                  _volume = 100.0;
+                  await controller(context).player.setVolume(100.0);
+                  mute = false;
+                } else {
+                  _volume = volume;
+                  await controller(context).player.setVolume(0.0);
+                  mute = !mute;
+                }
+
+                setState(() {});
+              },
+              iconSize: widget.iconSize ??
+                  (_theme(context).buttonBarButtonSize * 0.8),
+              color: widget.iconColor ?? _theme(context).buttonBarButtonColor,
+              icon: AnimatedSwitcher(
+                duration: _theme(context).volumeBarTransitionDuration,
+                child: volume == 0.0
+                    ? (widget.volumeMuteIcon ??
+                    const Icon(
+                      Icons.volume_off,
+                      key: ValueKey(Icons.volume_off),
+                    ))
+                    : volume < 50.0
+                    ? (widget.volumeLowIcon ??
+                    const Icon(
+                      Icons.volume_down,
+                      key: ValueKey(Icons.volume_down),
+                    ))
+                    : (widget.volumeHighIcon ??
+                    const Icon(
+                      Icons.volume_up,
+                      key: ValueKey(Icons.volume_up),
+                    )),
+              ),
+            ),
+            AnimatedOpacity(
+              opacity: hover ? 1.0 : 0.0,
+              duration: _theme(context).volumeBarTransitionDuration,
+              child: AnimatedContainer(
+                width:
+                hover ? (12.0 + (widget.sliderWidth ?? 52.0) + 18.0) : 12.0,
+                duration: _theme(context).volumeBarTransitionDuration,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 12.0),
+                      SizedBox(
+                        width: widget.sliderWidth ?? 52.0,
+                        child: SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 1.2,
+                            inactiveTrackColor: _theme(context).volumeBarColor,
+                            activeTrackColor:
+                            _theme(context).volumeBarActiveColor,
+                            thumbColor: _theme(context).volumeBarThumbColor,
+                            thumbShape: RoundSliderThumbShape(
+                              enabledThumbRadius:
+                              _theme(context).volumeBarThumbSize / 2,
+                              elevation: 0.0,
+                              pressedElevation: 0.0,
+                            ),
+                            trackShape: _CustomTrackShape(),
+                            overlayColor: const Color(0x00000000),
+                          ),
+                          child: Slider(
+                            value: volume.clamp(0.0, 100.0),
+                            min: 0.0,
+                            max: 100.0,
+                            onChanged: (value) async {
+                              await controller(context).player.setVolume(value);
+                              mute = false;
+                              setState(() {});
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 18.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2191,6 +2416,28 @@ class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CustomTrackShape extends RoundedRectSliderTrackShape {
+  @override
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    final height = sliderTheme.trackHeight;
+    final left = offset.dx;
+    final top = offset.dy + (parentBox.size.height - height!) / 2;
+    final width = parentBox.size.width;
+    return Rect.fromLTWH(
+      left,
+      top,
+      width,
+      height,
     );
   }
 }

@@ -1263,17 +1263,21 @@ class MaterialDesktopFullscreenButton extends StatelessWidget {
   /// Overriden icon color for [MaterialDesktopFullscreenButton].
   final Color? iconColor;
 
+  /// The callback that is called when the button is tapped or otherwise activated.
+  final VoidCallback? onPressed;
+
   const MaterialDesktopFullscreenButton({
     Key? key,
     this.icon,
     this.iconSize,
     this.iconColor,
+    this.onPressed,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      onPressed: () => toggleFullscreen(context),
+      onPressed: onPressed ?? () => toggleFullscreen(context),
       icon: icon ??
           (isFullscreen(context)
               ? const Icon(Icons.fullscreen_exit)
