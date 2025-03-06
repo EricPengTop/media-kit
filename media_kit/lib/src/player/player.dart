@@ -164,6 +164,12 @@ class Player {
     );
   }
 
+  Future<void> reload({
+    bool play = true,
+  }) async {
+    return platform?.reload(play: play);
+  }
+
   /// Stops the [Player].
   /// Unloads the current [Media] or [Playlist] from the [Player]. This method is similar to [dispose] but does not release the resources & [Player] is still usable.
   Future<void> stop() async {

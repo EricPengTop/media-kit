@@ -435,6 +435,16 @@ class WebPlayer extends PlatformPlayer {
     }
   }
 
+  @override
+  Future<void> reload({
+    bool play = true,
+  }) async {
+    if (_playlist.isEmpty || _index >= _playlist.length) {
+      return;
+    }
+    return open(_playlist[_index], play: play);
+  }
+
   /// Stops the [Player].
   /// Unloads the current [Media] or [Playlist] from the [Player]. This method is similar to [dispose] but does not release the resources & [Player] is still usable.
   @override

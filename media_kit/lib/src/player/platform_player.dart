@@ -163,6 +163,14 @@ abstract class PlatformPlayer {
     );
   }
 
+  Future<void> reload({
+    bool play = true,
+  }) {
+    throw UnimplementedError(
+      '[PlatformPlayer.reload] is not implemented',
+    );
+  }
+
   Future<void> stop() {
     throw UnimplementedError(
       '[PlatformPlayer.stop] is not implemented',

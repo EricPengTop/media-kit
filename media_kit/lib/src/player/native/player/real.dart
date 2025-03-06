@@ -234,6 +234,16 @@ class NativePlayer extends PlatformPlayer {
     }
   }
 
+  @override
+  Future<void> reload({
+    bool play = true,
+  }) async {
+    if (current.isEmpty) {
+      return;
+    }
+    return open(current[state.playlist.index], play: play);
+  }
+
   /// Stops the [Player].
   /// Unloads the current [Media] or [Playlist] from the [Player]. This method is similar to [dispose] but does not release the resources & [Player] is still usable.
   @override
